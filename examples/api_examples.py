@@ -29,7 +29,7 @@ class WazuhMitreAPI:
     Wazuh MITRE API client with comprehensive examples
     """
 
-    def __init__(self, base_url="https://localhost:55000", username="cristian.zavettieri", password="Stabio2025*"):
+    def __init__(self, base_url="https://localhost:55000", username="wazuh-user", password="your-password"):
         self.base_url = base_url
         self.username = username
         self.password = password

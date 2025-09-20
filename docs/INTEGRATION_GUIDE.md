@@ -238,7 +238,7 @@ const mitreQueries = {
 ### Authentication Setup
 ```bash
 # Get API token
-TOKEN=$(curl -k -s -u cristian.zavettieri:Stabio2025* -X POST \
+TOKEN=$(curl -k -s -u your-username:your-password -X POST \
     https://localhost:55000/security/user/authenticate | jq -r '.data.token')
 ```
 
@@ -314,8 +314,8 @@ print(f"Technique: {technique['data']['affected_items'][0]['name']}")
 # MITRE API automation script
 
 WAZUH_API="https://localhost:55000"
-USERNAME="cristian.zavettieri"
-PASSWORD="Stabio2025*"
+USERNAME="your-username"
+PASSWORD="your-password"
 
 # Get token
 get_token() {
