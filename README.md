@@ -150,19 +150,21 @@ attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81|Valid Accounts|[description
 
 ```
 wazuh-mitre-warnings-fix/
-├── scripts/
-│   ├── mitre-db-autoupdate.sh          # Main fix script
-│   ├── verify-fix.sh                   # Verification script
-│   └── fix-permissions.sh              # Permission fix utility
-├── docs/
-│   ├── TECHNICAL_ANALYSIS.md           # Deep technical dive
-│   ├── TROUBLESHOOTING.md              # Common issues
-│   ├── INSTALLATION_GUIDE.md           # Detailed setup
-│   └── CHANGELOG.md                    # Version history
-├── examples/
-│   ├── before-fix-logs.txt             # Sample warning logs
-│   └── after-fix-logs.txt              # Clean logs
-└── README.md                           # This file
+├── scripts/                            # Production scripts
+│   ├── mitre-db-autoupdate.sh         # Main fix script (v2.1)
+│   ├── verify-fix.sh                  # Verification utility
+│   └── fix-permissions.sh             # Permission management
+├── docs/                              # Complete documentation
+│   ├── INSTALLATION_GUIDE.md          # Step-by-step installation
+│   ├── TECHNICAL_ANALYSIS.md           # Deep technical analysis
+│   ├── TROUBLESHOOTING.md              # Common issues & solutions
+│   ├── CHANGELOG.md                    # Version history
+│   ├── DATABASE_SCHEMA.md              # Database structure details
+│   └── INTEGRATION_GUIDE.md            # Wazuh integration guide
+├── examples/                          # Integration examples
+│   ├── alert_examples.json            # Before/after alert samples
+│   └── api_examples.py                # Python API integration
+└── README.md                          # This file
 ```
 
 ## 🛠 Troubleshooting
@@ -301,6 +303,9 @@ Special thanks to:
 | 🚀 **Quick Start** | Get fixed in 5 minutes | [Installation](#installation) |
 | 🔬 **Technical Details** | Deep dive analysis | [Technical Analysis](docs/TECHNICAL_ANALYSIS.md) |
 | 🛠 **Troubleshooting** | Common issues & solutions | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| 🗄️ **Database Schema** | Database structure details | [Database Schema](docs/DATABASE_SCHEMA.md) |
+| 🔗 **Integration Guide** | Wazuh integration examples | [Integration Guide](docs/INTEGRATION_GUIDE.md) |
+| 📊 **API Examples** | Python integration code | [API Examples](examples/api_examples.py) |
 | 💬 **Community** | Get help & share success | [GitHub Issues](../../issues) |
 | 📊 **Verification** | Confirm your fix works | [Verification](#verification) |
 

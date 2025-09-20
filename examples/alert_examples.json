@@ -1,0 +1,367 @@
+{
+  "examples": {
+    "before_fix": {
+      "description": "Alert structure before UUID fix - missing MITRE enrichment",
+      "alert": {
+        "timestamp": "2025-09-20T15:30:00.000Z",
+        "agent": {
+          "id": "001",
+          "name": "windows-server-01",
+          "ip": "192.168.1.100"
+        },
+        "rule": {
+          "id": "100200",
+          "level": 10,
+          "description": "Brute force attack detected",
+          "mitre": {},
+          "groups": ["attack", "authentication"]
+        },
+        "data": {
+          "srcip": "192.168.1.200",
+          "dstuser": "administrator",
+          "protocol": "ssh"
+        },
+        "location": "/var/log/auth.log",
+        "full_log": "Sep 20 15:30:00 server sshd[12345]: Failed password for administrator from 192.168.1.200"
+      },
+      "warnings_generated": [
+        "WARNING: Mitre Technique ID 'T1110' not found in database.",
+        "WARNING: Mitre Technique ID 'T1078' not found in database."
+      ]
+    },
+    "after_fix": {
+      "description": "Alert structure after UUID fix - complete MITRE enrichment",
+      "alert": {
+        "timestamp": "2025-09-20T15:30:00.000Z",
+        "agent": {
+          "id": "001",
+          "name": "windows-server-01",
+          "ip": "192.168.1.100"
+        },
+        "rule": {
+          "id": "100200",
+          "level": 10,
+          "description": "Brute force attack detected",
+          "mitre": {
+            "technique": [
+              {
+                "id": "T1110",
+                "name": "Brute Force",
+                "tactic": ["Credential Access"],
+                "platform": ["Windows", "Linux", "macOS"],
+                "description": "Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained."
+              }
+            ]
+          },
+          "groups": ["attack", "authentication", "mitre"]
+        },
+        "data": {
+          "srcip": "192.168.1.200",
+          "dstuser": "administrator",
+          "protocol": "ssh"
+        },
+        "location": "/var/log/auth.log",
+        "full_log": "Sep 20 15:30:00 server sshd[12345]: Failed password for administrator from 192.168.1.200"
+      },
+      "warnings_generated": []
+    },
+    "multi_technique_alert": {
+      "description": "Alert with multiple MITRE techniques - complex attack scenario",
+      "alert": {
+        "timestamp": "2025-09-20T16:45:00.000Z",
+        "agent": {
+          "id": "002",
+          "name": "domain-controller-01",
+          "ip": "192.168.1.10"
+        },
+        "rule": {
+          "id": "100301",
+          "level": 12,
+          "description": "Successful authentication after multiple failed attempts",
+          "mitre": {
+            "technique": [
+              {
+                "id": "T1110",
+                "name": "Brute Force",
+                "tactic": ["Credential Access"],
+                "platform": ["Windows", "Linux", "macOS"]
+              },
+              {
+                "id": "T1078",
+                "name": "Valid Accounts",
+                "tactic": ["Defense Evasion", "Persistence", "Privilege Escalation", "Initial Access"],
+                "platform": ["Windows", "Linux", "macOS", "Cloud"]
+              },
+              {
+                "id": "T1078.002",
+                "name": "Domain Accounts",
+                "tactic": ["Defense Evasion", "Persistence", "Privilege Escalation", "Initial Access"],
+                "platform": ["Windows"]
+              }
+            ]
+          },
+          "groups": ["attack", "authentication", "credential_access", "mitre"]
+        },
+        "data": {
+          "srcip": "192.168.1.200",
+          "dstuser": "domain\\administrator",
+          "protocol": "kerberos",
+          "action": "success",
+          "failed_attempts": 15
+        },
+        "location": "WinEvtLog",
+        "full_log": "Event ID 4624: An account was successfully logged on after 15 failed attempts"
+      }
+    },
+    "windows_specific_alert": {
+      "description": "Windows-specific MITRE technique with sub-technique mapping",
+      "alert": {
+        "timestamp": "2025-09-20T17:15:00.000Z",
+        "agent": {
+          "id": "003",
+          "name": "workstation-05",
+          "ip": "192.168.1.150"
+        },
+        "rule": {
+          "id": "100402",
+          "level": 10,
+          "description": "Pass the Hash attack detected",
+          "mitre": {
+            "technique": [
+              {
+                "id": "T1550.002",
+                "name": "Pass the Hash",
+                "tactic": ["Defense Evasion", "Lateral Movement"],
+                "platform": ["Windows"],
+                "description": "Adversaries may pass the hash to move laterally within an environment.",
+                "subtechnique_of": "T1550"
+              }
+            ]
+          },
+          "groups": ["attack", "lateral_movement", "credential_access", "windows", "mitre"]
+        },
+        "data": {
+          "srcip": "192.168.1.100",
+          "dstip": "192.168.1.150",
+          "win": {
+            "eventdata": {
+              "logonType": "3",
+              "authenticationPackageName": "NTLM"
+            }
+          }
+        },
+        "location": "WinEvtLog",
+        "decoder": {
+          "name": "windows-security"
+        }
+      }
+    },
+    "cloud_attack_alert": {
+      "description": "Cloud-based attack with MITRE ATT&CK mapping",
+      "alert": {
+        "timestamp": "2025-09-20T18:00:00.000Z",
+        "agent": {
+          "id": "004",
+          "name": "aws-cloudtrail",
+          "ip": "cloud"
+        },
+        "rule": {
+          "id": "100503",
+          "level": 8,
+          "description": "Suspicious AWS API activity detected",
+          "mitre": {
+            "technique": [
+              {
+                "id": "T1078.004",
+                "name": "Cloud Accounts",
+                "tactic": ["Defense Evasion", "Persistence", "Privilege Escalation", "Initial Access"],
+                "platform": ["Cloud"],
+                "subtechnique_of": "T1078"
+              },
+              {
+                "id": "T1580",
+                "name": "Cloud Infrastructure Discovery",
+                "tactic": ["Discovery"],
+                "platform": ["Cloud"]
+              }
+            ]
+          },
+          "groups": ["aws", "cloud", "discovery", "mitre"]
+        },
+        "data": {
+          "aws": {
+            "eventName": "DescribeInstances",
+            "sourceIPAddress": "203.0.113.100",
+            "userIdentity": {
+              "type": "IAMUser",
+              "userName": "suspicious-user"
+            }
+          }
+        },
+        "location": "aws-cloudtrail"
+      }
+    },
+    "linux_persistence_alert": {
+      "description": "Linux persistence technique with MITRE mapping",
+      "alert": {
+        "timestamp": "2025-09-20T19:30:00.000Z",
+        "agent": {
+          "id": "005",
+          "name": "linux-server-02",
+          "ip": "192.168.1.75"
+        },
+        "rule": {
+          "id": "100604",
+          "level": 10,
+          "description": "Suspicious cron job creation",
+          "mitre": {
+            "technique": [
+              {
+                "id": "T1053.003",
+                "name": "Cron",
+                "tactic": ["Execution", "Persistence", "Privilege Escalation"],
+                "platform": ["Linux", "macOS"],
+                "subtechnique_of": "T1053"
+              }
+            ]
+          },
+          "groups": ["linux", "persistence", "cron", "mitre"]
+        },
+        "data": {
+          "srcuser": "root",
+          "command": "/tmp/.hidden/backdoor.sh",
+          "schedule": "*/5 * * * *"
+        },
+        "location": "/var/log/cron.log",
+        "decoder": {
+          "name": "cron"
+        }
+      }
+    },
+    "network_attack_alert": {
+      "description": "Network-based attack with multiple MITRE techniques",
+      "alert": {
+        "timestamp": "2025-09-20T20:15:00.000Z",
+        "agent": {
+          "id": "006",
+          "name": "firewall-01",
+          "ip": "192.168.1.1"
+        },
+        "rule": {
+          "id": "100705",
+          "level": 12,
+          "description": "Network scanning and exploitation attempt",
+          "mitre": {
+            "technique": [
+              {
+                "id": "T1595.002",
+                "name": "Vulnerability Scanning",
+                "tactic": ["Reconnaissance"],
+                "platform": ["Network"],
+                "subtechnique_of": "T1595"
+              },
+              {
+                "id": "T1190",
+                "name": "Exploit Public-Facing Application",
+                "tactic": ["Initial Access"],
+                "platform": ["Windows", "Linux", "macOS", "Network"]
+              }
+            ]
+          },
+          "groups": ["network", "scanning", "exploitation", "mitre"]
+        },
+        "data": {
+          "srcip": "203.0.113.50",
+          "dstip": "192.168.1.100",
+          "dstport": "80",
+          "protocol": "TCP",
+          "action": "blocked"
+        },
+        "location": "firewall"
+      }
+    }
+  },
+  "database_records": {
+    "description": "Example of dual records in database after fix",
+    "technique_t1078": {
+      "mitre_id_record": {
+        "id": "T1078",
+        "name": "Valid Accounts",
+        "description": "Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.",
+        "mitre_version": "17.1",
+        "created_time": "2017-05-31T21:30:55.471Z",
+        "modified_time": "2024-04-15T20:10:15.471Z"
+      },
+      "uuid_record": {
+        "id": "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+        "name": "Valid Accounts",
+        "description": "Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.",
+        "mitre_version": "17.1",
+        "created_time": "2017-05-31T21:30:55.471Z",
+        "modified_time": "2024-04-15T20:10:15.471Z"
+      }
+    }
+  },
+  "api_responses": {
+    "description": "Example API responses after fix implementation",
+    "get_technique_success": {
+      "endpoint": "GET /mitre/techniques/T1078",
+      "response": {
+        "error": 0,
+        "data": {
+          "affected_items": [
+            {
+              "id": "T1078",
+              "name": "Valid Accounts",
+              "description": "Adversaries may obtain and abuse credentials of existing accounts...",
+              "created_time": "2017-05-31T21:30:55.471Z",
+              "modified_time": "2024-04-15T20:10:15.471Z",
+              "mitre_version": "17.1",
+              "network_requirements": false,
+              "remote_support": true,
+              "deprecated": false,
+              "subtechnique_of": null
+            }
+          ],
+          "total_affected_items": 1,
+          "total_failed_items": 0
+        }
+      }
+    },
+    "get_all_techniques_count": {
+      "endpoint": "GET /mitre/techniques",
+      "response": {
+        "error": 0,
+        "data": {
+          "total_affected_items": 1382,
+          "total_failed_items": 0
+        }
+      }
+    }
+  },
+  "integration_examples": {
+    "splunk_hec": {
+      "description": "Example of MITRE-enriched alert sent to Splunk HEC",
+      "format": "JSON",
+      "endpoint": "https://splunk:8088/services/collector",
+      "payload": {
+        "time": 1695221400,
+        "source": "wazuh",
+        "sourcetype": "wazuh:alert",
+        "index": "security",
+        "event": {
+          "alert_id": "1695221400.123456",
+          "mitre_technique": "T1078",
+          "mitre_tactic": "Initial Access",
+          "severity": "high",
+          "agent": "windows-server-01",
+          "description": "Valid account compromise detected"
+        }
+      }
+    },
+    "qradar_leef": {
+      "description": "Example LEEF format for QRadar integration",
+      "format": "LEEF:2.0|Wazuh|SIEM|4.10|100200|cat=Authentication|devTime=Sep 20 2025 15:30:00|src=192.168.1.200|dst=192.168.1.100|usrName=administrator|mitreTechnique=T1078|mitreTactic=Initial Access|severity=10"
+    }
+  }
+}
