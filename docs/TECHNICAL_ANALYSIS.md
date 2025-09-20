@@ -1,8 +1,8 @@
-# 🔬 Technical Deep Dive: MITRE ATT&CK UUID Resolution
+# 🔬 Technical Deep Dive: MITRE ATT&CK Complete Resolution v3.0
 
 ## 📋 Technical Summary
 
-This document provides the complete technical analysis behind the MITRE warning resolution, including code examination, database forensics, and the exact implementation details.
+This document provides the complete technical analysis behind the MITRE warning resolution, including the **critical discovery of obsolete Wazuh rules** and the dual-problem solution (database + rules), with code examination, database forensics, and exact implementation details.
 
 ---
 
@@ -28,6 +28,56 @@ sqlite3 /var/ossec/var/db/mitre.db.backup.20250915_030001 "SELECT COUNT(*) FROM 
 
 sqlite3 /var/ossec/var/db/mitre.db.broken.20250920 "SELECT COUNT(*) FROM technique;"
 # Result: 691 techniques (broken)
+
+### Phase 3: CRITICAL BREAKTHROUGH (20:15 - 20:25)
+
+**EMERGENCY DISCOVERY**: T1574.002 warnings persisted even after "successful" fix!
+
+#### Problem Analysis
+```bash
+# After applying our UUID fix, most warnings disappeared but T1574.002 persisted
+tail -f /var/ossec/logs/ossec.log | grep T1574.002
+# Still showing: WARNING: Mitre Technique ID 'T1574.002' not found in database.
+
+# Checked if T1574.002 exists in our updated database
+sqlite3 /var/ossec/var/db/mitre.db "SELECT id, name FROM technique WHERE id = 'T1574.002';"
+# Result: EMPTY! Why didn't our script add this technique?
+```
+
+#### Root Cause Discovery
+```python
+# Analyzed official MITRE JSON for T1574.002
+curl -s "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json" | \
+python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for obj in data['objects']:
+    if obj.get('id') == 'attack-pattern--e64c62cf-9cd7-4a14-94ec-cdaac43ab44b':
+        print(f'Found: {obj.get(\"name\")}')
+        print(f'Revoked: {obj.get(\"revoked\", False)}')
+        break
+"
+# CRITICAL FINDING: T1574.002 is REVOKED in official MITRE dataset!
+```
+
+#### Script Logic Validation
+```bash
+# Our script correctly excludes revoked techniques:
+# if obj.get('type') == 'attack-pattern' and not obj.get('revoked', False):
+# This is CORRECT behavior - T1574.002 should NOT be in database
+```
+
+#### Wazuh Rules Investigation
+```bash
+# Found the real problem: Wazuh rules using obsolete techniques
+find /var/ossec/ruleset -name "*.xml" -exec grep -l "T1574.002" {} \;
+# Result:
+# /var/ossec/ruleset/rules/0800-sysmon_id_1.xml
+# /var/ossec/ruleset/rules/0830-sysmon_id_11.xml
+
+# Technique T1574.002 "DLL Side-Loading" was consolidated into T1574.001 "DLL Search Order Hijacking"
+# But Wazuh rules still reference the obsolete T1574.002!
+```
 
 # Key difference: 80 missing techniques
 ```

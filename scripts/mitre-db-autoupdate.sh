@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# GOLINE SOC - MITRE Database Complete Auto-Update Script
-# Version: 2.1 - ENHANCED VALIDATION & DEBUG
-# Description: Downloads complete MITRE ATT&CK with robust validation and error handling
+# GOLINE SOC - MITRE Database Complete Auto-Update Script v3.0
+# Version: 3.0 - COMPLETE SOLUTION: DATABASE + RULE FIXES
+# Description: Downloads complete MITRE ATT&CK and fixes obsolete Wazuh rules
+# NEW: Automatic detection and correction of deprecated MITRE techniques in rules
 # Schedule: Run weekly via cron
 
 # Exit on any error for strict error handling
@@ -277,6 +278,73 @@ manage_backups() {
     report_success "Backup rotation completed ($backup_count backups managed)"
 }
 
+# NEW v3.0: Function to fix obsolete MITRE techniques in Wazuh rules
+fix_obsolete_wazuh_rules() {
+    log_message "Checking for obsolete MITRE techniques in Wazuh rules"
+
+    local rules_updated=0
+    local backup_timestamp=$(date +%Y%m%d_%H%M%S)
+
+    # Known obsolete technique mappings (add more as discovered)
+    declare -A obsolete_techniques=(
+        ["T1574.002"]="T1574.001"  # DLL Side-Loading → DLL Search Order Hijacking (REVOKED)
+        ["T1073"]="T1574.001"      # DLL Search Order Hijacking (old deprecated ID)
+        ["T1038"]="T1574.007"      # Path Interception by PATH Environment Variable (old deprecated ID)
+    )
+
+    # Search for rules containing obsolete techniques
+    for obsolete_id in "${!obsolete_techniques[@]}"; do
+        local replacement_id="${obsolete_techniques[$obsolete_id]}"
+
+        # Find affected rule files
+        local affected_files=$(find /var/ossec/ruleset -name "*.xml" -exec grep -l "$obsolete_id" {} \; 2>/dev/null)
+
+        if [ -n "$affected_files" ]; then
+            log_message "Found obsolete technique $obsolete_id in rules, updating to $replacement_id"
+
+            for rule_file in $affected_files; do
+                # Create backup before modification
+                cp "$rule_file" "${rule_file}.backup.${backup_timestamp}"
+                debug_log "Created backup: ${rule_file}.backup.${backup_timestamp}"
+
+                # Special handling for T1574.002 → T1574.001 (avoid duplicates)
+                if [ "$obsolete_id" = "T1574.002" ]; then
+                    if grep -q "<id>T1574.001</id>" "$rule_file" && grep -q "<id>T1574.002</id>" "$rule_file"; then
+                        # If both exist, remove T1574.002 to avoid duplicates
+                        sed -i "/<id>T1574.002<\/id>/d" "$rule_file"
+                        log_message "Removed duplicate T1574.002 from $(basename $rule_file) (T1574.001 already present)"
+                    else
+                        # Replace T1574.002 with T1574.001
+                        sed -i "s|<id>T1574.002</id>|<id>T1574.001</id>|g" "$rule_file"
+                        log_message "Replaced T1574.002 with T1574.001 in $(basename $rule_file)"
+                    fi
+                else
+                    # Standard replacement for other obsolete techniques
+                    sed -i "s|<id>$obsolete_id</id>|<id>$replacement_id</id>|g" "$rule_file"
+                    log_message "Replaced $obsolete_id with $replacement_id in $(basename $rule_file)"
+                fi
+
+                # Fix permissions (critical for Wazuh)
+                chown wazuh:wazuh "$rule_file"
+                chmod 660 "$rule_file"
+                debug_log "Fixed permissions for $rule_file"
+
+                rules_updated=$((rules_updated + 1))
+            done
+        fi
+    done
+
+    if [ $rules_updated -gt 0 ]; then
+        log_message "Updated $rules_updated rule files. Backups created with timestamp $backup_timestamp"
+        report_success "Obsolete rule correction: $rules_updated files updated"
+        return 0
+    else
+        log_message "No obsolete MITRE techniques found in rules"
+        report_success "Rule validation: All techniques current"
+        return 1
+    fi
+}
+
 # Function to stop wazuh-analysisd service
 stop_wazuh_analysisd() {
     log_message "Stopping wazuh-analysisd service"
@@ -313,6 +381,30 @@ start_wazuh_analysisd() {
         fi
     else
         error_exit "Failed to start wazuh-analysisd within timeout"
+    fi
+}
+
+# NEW v3.0: Function to perform complete Wazuh restart (required for rule changes)
+restart_wazuh_complete() {
+    log_message "Performing complete Wazuh restart (required for rule changes)"
+
+    # Use wazuh-control for complete restart to ensure rule changes are loaded
+    if timeout 120 /var/ossec/bin/wazuh-control restart; then
+        log_message "Complete Wazuh restart completed successfully"
+
+        # Wait for all services to fully initialize
+        log_message "Waiting for all Wazuh services to initialize (30 seconds)"
+        sleep 30
+
+        # Verify critical services are running
+        if systemctl is-active --quiet wazuh-manager; then
+            log_message "Wazuh manager service is active and running"
+            return 0
+        else
+            error_exit "Wazuh manager service failed to start after complete restart"
+        fi
+    else
+        error_exit "Complete Wazuh restart failed or timed out"
     fi
 }
 
@@ -981,7 +1073,7 @@ generate_final_report() {
 
 # Main execution function
 main() {
-    log_message "Starting MITRE ATT&CK complete database update v2.1"
+    log_message "Starting MITRE ATT&CK complete database update v3.0 (DATABASE + RULES)"
 
     # Trap to ensure cleanup
     trap cleanup EXIT
@@ -1053,14 +1145,34 @@ main() {
         error_exit "Database verification failed"
     fi
 
+    # NEW v3.0: Fix obsolete MITRE techniques in Wazuh rules
+    log_message "Starting obsolete rule correction phase"
+    local rules_were_updated=0
+    if fix_obsolete_wazuh_rules; then
+        rules_were_updated=1
+        log_message "Rules were updated - complete Wazuh restart will be performed"
+    else
+        log_message "No rule updates needed - standard service restart will be used"
+    fi
+
     # Set correct database permissions
     if ! set_database_permissions; then
         error_exit "Failed to set database permissions"
     fi
 
-    # Start wazuh-analysisd service
-    if ! start_wazuh_analysisd; then
-        error_exit "Failed to start wazuh-analysisd after database update"
+    # Choose restart method based on whether rules were modified
+    if [ $rules_were_updated -eq 1 ]; then
+        # Complete restart required for rule changes to take effect
+        log_message "Performing complete Wazuh restart (rules were modified)"
+        if ! restart_wazuh_complete; then
+            error_exit "Failed to restart Wazuh after rule updates"
+        fi
+    else
+        # Standard service restart sufficient for database-only changes
+        log_message "Starting wazuh-analysisd service (no rule changes)"
+        if ! start_wazuh_analysisd; then
+            error_exit "Failed to start wazuh-analysisd after database update"
+        fi
     fi
 
     # Wait for service to fully initialize and start processing
